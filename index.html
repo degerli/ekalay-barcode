@@ -1,0 +1,209 @@
+<!DOCTYPE HTML>
+<!--
+	Landed by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>eKalay - SignIn/SignOut Barcode System</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!--[if lte IE 8]><script src="assets/js/ie/html5shiv.js"></script><![endif]-->
+		<link rel="stylesheet" href="assets/css/offline-theme-dark.css" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<!--[if lte IE 9]><link rel="stylesheet" href="assets/css/ie9.css" /><![endif]-->
+		<!--[if lte IE 8]><link rel="stylesheet" href="assets/css/ie8.css" /><![endif]-->
+	</head>
+	<body class="landing">
+		<script src="assets/js/vue.js"></script>
+		<script src="https://unpkg.com/lodash@4.17.4/lodash.min.js"></script>
+    <script src="assets/js/polyfill.min.js"></script>
+    <script src="assets/js/tether.min.js"></script>
+    <script src="assets/js/bootstrap-vue.js"></script>
+    <script src="assets/js/axios.min.js"></script>
+		<script src="assets/js/offline.min.js"></script>
+		<div id="page-wrapper">
+
+			<header id="header">
+				<h1 id="logo">eKalay Sign In/Out Barcode System</h1>
+			</header>
+
+
+			<!-- Banner -->
+				<section id="banner">
+					<div class="content">
+						<header>
+							<h2 v-cloak>{{ time }} | {{ date }}</h2>
+							<form v-on:submit.prevent="submitForm">
+								<b-form-input style="" ref="inputid" v-model="id"
+															type="text"
+															placeholder="Place barcode to the scanner"
+															size="lg"
+								></b-form-input>
+							</form>
+							<transition name="fade" mode="out-in">
+								<p v-if="modalcontent" :key="modalcontent" v-html="modalcontent"></p>
+								<b v-else><font color="white">Recent history:</font>
+								<br />
+								<font color="white" v-html="lastrecorded1"></font><br />
+								<font color="white" v-html="lastrecorded2"></font><br />
+								<font color="white" v-html="lastrecorded3"></font><br />
+								<font color="white" v-html="lastrecorded4"></font><br />
+								<font color="white" v-html="lastrecorded5"></font><br /></b>
+							</transition>
+						</header>
+						<span class="image">
+							<transition name="fade">
+								<img :key="image" :src="image" alt="Image"></img>
+							</transition>
+						</span>
+					</div>
+				</section>
+
+		</div>
+
+		<!-- Scripts -->
+		<script src="assets/js/moment.js"></script>
+		<script src="assets/js/jquery.min.js"></script>
+		<script src="assets/js/jquery.scrolly.min.js"></script>
+		<script src="assets/js/jquery.dropotron.min.js"></script>
+		<script src="assets/js/jquery.scrollex.min.js"></script>
+		<script src="assets/js/skel.min.js"></script>
+		<script src="assets/js/util.js"></script>
+		<!--[if lte IE 8]><script src="assets/js/ie/respond.min.js"></script><![endif]-->
+		<script src="assets/js/main.js"></script>
+		<script>
+	    var app = new Vue({
+	      el: '#page-wrapper',
+	      data: {
+	        message: 'Hello World!',
+	        time: '',
+	        date: '',
+	        id: '',
+	        acceptedID: '',
+	        acceptedDateTime: '',
+	        bgcolor: 'info',
+	        modalcontent: '',
+	        lastrecorded1: '',
+	        lastrecorded2: '',
+	        lastrecorded3: '',
+	        lastrecorded4: '',
+	        lastrecorded5: '',
+	        image: 'images/anonymousman-900x620.jpg'
+	      },
+	      mounted () {
+	        this.$refs.inputid.$el.focus()
+	        setInterval(this.updateDateTime, 1000)
+	      },
+	      methods: {
+	        updateDateTime() {
+	          this.time = moment().format('h:mm:ss a')
+	          this.date = moment().format('MMMM D, YYYY')
+	        },
+					autoSave: _.debounce(function () {
+						this.$refs.inputid.$el.focus()
+						this.modalcontent = ""
+						this.image = 'images/anonymousman-900x620.jpg'
+					}, 3500),
+	        submitID: function() {
+	          let data = {}
+	          data.id = this.id
+	          this.id = ''
+	          data.datetime = moment().format()
+	          this.acceptedDateTime = moment(data.datetime).format("MMMM DD YYYY, h:mm:ss a")
+	          this.acceptedID = data.id
+	          if (/^(KRH-\d{4}-\d{3})$/.test(data.id) || /^(KRH-\d{4}-\d{2})$/.test(data.id) || /^(KRH-\d{4}-\d{3}-V)$/.test(data.id)) {
+	            let vm = this
+	            axios.get('https://e.updkalay.com/api/v1/images/' + data.id.replace('-V', '') + '/krhid/')
+	            .then(function (response) {
+	              console.log(response);
+	              vm.image = response.data.thumbnail
+	            })
+	            axios.post('https://e.updkalay.com/api/v1/inoutentries/', {
+	              krhid: data.id,
+	              timestamp: data.datetime
+	            })
+	            .then(function (response) {
+	              console.log(response);
+	              axios.get('https://e.updkalay.com/api/v1/inoutentries/' + data.id.replace('-V', '') + '/isodd/')
+	              .then(function (response) {
+	                inorout = ''
+	                if (!response.data.isodd) {
+	                  // even (Welcome back!)
+	                  vm.bgcolor = 'info'
+	                  vm.modalcontent = '<h2><strong><font color="green">IN</font></strong></h2><p>Welcome back!</p><br><br>'
+	                  inorout = '<font color="green">IN</font>'
+	                }
+	                else {
+	                  // odd (Byebye!)
+	                  vm.bgcolor = 'success'
+	                  vm.modalcontent = '<h2><strong><font color="red">OUT</font></strong></h2><p>Bye! Have a nice day!</p><br><br>'
+	                  inorout = '<font color="red">OUT</font>'
+	                }
+	                vm.lastrecorded5 = vm.lastrecorded4
+	                vm.lastrecorded4 = vm.lastrecorded3
+	                vm.lastrecorded3 = vm.lastrecorded2
+	                vm.lastrecorded2 = vm.lastrecorded1
+	                vm.lastrecorded1 = data.id.replace('-V', '') + ' | ' + inorout + ' | ' + vm.acceptedDateTime
+	                console.log(response);
+	              })
+	              .catch(function (error) {
+	                console.log(error);
+									vm.image = 'images/anonymousman-900x620.jpg'
+	                vm.bgcolor = 'danger'
+	                vm.modalcontent = '<h2><font color="red">'+error.message+'</font></h2>'
+	              });
+	            })
+	            .catch(function (error) {
+	              console.log(error);
+								vm.image = 'images/anonymousman-900x620.jpg'
+	              vm.bgcolor = 'danger'
+	              vm.modalcontent = '<h2><font color="red">'+error.message+'</font></h2>'
+	            });
+	          } else if (/^(KRH-\d{4}-\d{3}-C)$/.test(data.id) || /^(KRH-\d{4}-\d{2}-C)$/.test(data.id) ) {
+	            let vm = this
+	            axios.get('https://e.updkalay.com/api/v1/images/' + data.id.replace('-C', '') + '/krhid/')
+	            .then(function (response) {
+	              console.log(response);
+	              vm.image = response.data.thumbnail
+	            })
+	            axios.get('https://e.updkalay.com/api/v1/inoutentries/' + data.id.replace('-C', '') + '/latest/')
+	            .then(function (response) {
+	              if (response.data.status) {
+	                // even (Welcome back!)
+	                vm.bgcolor = 'info'
+	                vm.modalcontent = "<h2>He/she is IN.</h2><br><br><br><br>"
+	                vm.acceptedDateTime = moment(response.data.timestamp).format("MMMM DD YYYY, h:mm:ss a")
+	              }
+	              else {
+	                // odd (Byebye!)
+	                vm.bgcolor = 'success'
+	                vm.modalcontent = "<h2>He/she is OUT.</h2><br><br><br><br>"
+	                vm.acceptedDateTime = moment(response.data.timestamp).format("MMMM DD YYYY, h:mm:ss a")
+	              }
+	            })
+	            .catch(function (error) {
+	              console.log(error);
+								vm.image = 'images/anonymousman-900x620.jpg'
+	              vm.bgcolor = 'danger'
+	              vm.modalcontent = '<h2><font color="red">'+error.message+'</font></h2>'
+	            });
+	          } else {
+	            let vm = this
+							this.image = 'images/anonymousman-900x620.jpg'
+	            this.bgcolor = 'danger'
+	            this.modalcontent = '<h2><font color="red">ERROR! Invalid barcode!</font></h2>'
+	          }
+	          // logs (data)
+	        },
+					submitForm: function() {
+						this.autoSave()
+						this.submitID()
+					}
+	      }
+	    })
+	  </script>
+
+	</body>
+</html>
